@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO.Ports;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.SignalR;
@@ -21,30 +22,40 @@ namespace SuperNovaSerialPortWebSocket.Hub
             return base.OnDisconnectedAsync(exception);
         }
 
-        public async Task SerialPortDataRequest(string connId)
+        public async Task SerialPortDataRequest(string serialPort)
         {
-            var serialPort = new ArduinoSerialPort();
-            if (serialPort.SerialPortIsOpen())
+
+            var serial = new ArduinoSerialPort(serialPort);
+            if (serial.SerialPortIsOpen())
             {
                 while (true)
                 {
-                    var data = serialPort.SerialPortReadLine();
+                    var data = serial.SerialPortReadLine();
                     if (data != null)
                     {
-                        await SendData(data, connId);
+                        await SendData(data);
                     }
                 }
             }
             else
             {
-                await SendData("Connection is closed", connId);
+                await SendData("Connection is closed");
             }
         }
 
-        public async Task SendData(string data, string connId)
+        public async Task GetAllComAsync(string connId)
+        {
+            var serialPorts = SerialPort.GetPortNames();
+            Console.WriteLine("Ports Listed {0}",serialPorts.Length);
+            
+            await Clients.All.SendAsync("GetAllComAsync", serialPorts);
+        }
+        
+
+        public async Task SendData(string data)
         {
             Console.WriteLine("Data Received --> " + data);
-            await Clients.Client(connId).SendAsync("ReceiveData", data);
+            await Clients.All.SendAsync("ReceiveData", data);
         }
     }
 }
